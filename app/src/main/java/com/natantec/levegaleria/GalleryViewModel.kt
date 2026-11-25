@@ -122,14 +122,14 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
 
-    fun setFilter(f: Filter) { filter = f }
+    fun changeFilter(f: Filter) { filter = f }
 
-    fun setTheme(v: Int) {
+    fun changeTheme(v: Int) {
         theme = v
         prefs.theme = v
     }
 
-    fun setColumns(v: Int) {
+    fun changeColumns(v: Int) {
         val n = v.coerceIn(2, 6)
         columns = n
         prefs.columns = n

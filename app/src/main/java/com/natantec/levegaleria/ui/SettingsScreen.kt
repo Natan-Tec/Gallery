@@ -68,7 +68,7 @@ fun SettingsScreen(vm: GalleryViewModel, pad: PaddingValues) {
                 listOf("Sistema", "Claro", "Escuro").forEachIndexed { i, label ->
                     FilterChip(
                         selected = vm.theme == i,
-                        onClick = { vm.setTheme(i) },
+                        onClick = { vm.changeTheme(i) },
                         label = { Text(label) },
                     )
                 }
@@ -79,7 +79,7 @@ fun SettingsScreen(vm: GalleryViewModel, pad: PaddingValues) {
         item {
             Slider(
                 value = vm.columns.toFloat(),
-                onValueChange = { vm.setColumns(it.roundToInt()) },
+                onValueChange = { vm.changeColumns(it.roundToInt()) },
                 valueRange = 2f..6f,
                 steps = 3,
                 modifier = Modifier.padding(horizontal = 16.dp),

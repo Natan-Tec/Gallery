@@ -102,7 +102,7 @@ private fun PhotosHeader(vm: GalleryViewModel, count: Int) {
             Filter.values().forEach { f ->
                 FilterChip(
                     selected = vm.filter == f,
-                    onClick = { vm.setFilter(f) },
+                    onClick = { vm.changeFilter(f) },
                     label = { Text(f.label) },
                 )
             }
