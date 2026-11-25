@@ -3,7 +3,11 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -38,3 +42,23 @@ jobs:
         with:
           name: LeveGaleria-apk
           path: app/build/outputs/apk/release/*.apk
+
+      - name: Criar pré-release (quando for uma tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "LeveGaleria-${GITHUB_REF_NAME}.apk"
+          gh release create "$GITHUB_REF_NAME" "LeveGaleria-${GITHUB_REF_NAME}.apk" \
+            --prerelease \
+            --title "Leve Galeria ${GITHUB_REF_NAME} (pré-release)" \
+            --notes "Primeira pré-release da Leve Galeria.
+
+          - Fotos agrupadas por dia, com filtros (Tudo, Fotos, Vídeos, Favoritos)
+          - Álbuns e pastas ocultáveis (Ajustes > Pastas)
+          - Visualizador com zoom, favoritos, compartilhar, excluir e detalhes
+          - Seleção múltipla, tema claro/escuro e grade de 2 a 6 colunas
+          - Android 8.0 ou mais novo
+
+          Instalação: baixe o APK, instale e permita acesso às fotos.
+          APK assinado com chave de debug; para atualizar, desinstale a versão anterior."
