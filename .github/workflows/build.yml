@@ -64,3 +64,29 @@ jobs:
 
           Instalação: baixe o APK, instale e permita acesso às fotos.
           APK assinado com chave de debug; para atualizar, desinstale a versão anterior."
+
+  diagnose:
+    needs: build
+    if: contains(github.event.head_commit.message, '[diag]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: LeveGaleria-apk
+          path: apk
+
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Testar no emulador (Android 10)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          disable-animations: true
+          script: bash .github/diag.sh
