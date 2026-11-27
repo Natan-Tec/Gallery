@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import com.natantec.levegaleria.ui.AlbumBar
 import com.natantec.levegaleria.ui.AlbumScreen
 import com.natantec.levegaleria.ui.AlbumsScreen
@@ -106,7 +105,7 @@ fun App(vm: GalleryViewModel) {
     }
 
     // Ao voltar para o app (ex.: depois de liberar a permissão nas configurações) recarrega.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    LaunchedEffect(vm.resumeTick) {
         val ok = hasAccess(ctx)
         access = ok
         if (ok) vm.reload()

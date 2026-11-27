@@ -47,6 +47,12 @@ class GalleryViewModel(app: Application) : AndroidViewModel(app) {
     var selection by mutableStateOf<Set<String>>(emptySet())
         private set
 
+    /** Sobe a cada onResume da Activity; a UI reage para rechecar a permissão. */
+    var resumeTick by mutableIntStateOf(0)
+        private set
+
+    fun notifyResume() { resumeTick++ }
+
     /** Álbum aberto na aba Álbuns (null = lista de álbuns). */
     var openAlbum by mutableStateOf<Long?>(null)
 
