@@ -3,6 +3,9 @@
 package com.natantec.levegaleria.ui
 
 import android.app.Activity
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -28,16 +31,19 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +53,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -66,9 +73,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
 import com.natantec.levegaleria.LocalIsDark
 import com.natantec.levegaleria.Media
 import com.natantec.levegaleria.formatDuration
@@ -117,7 +126,13 @@ fun ViewerScreen(
         ) { page ->
             val m = items[page]
             if (m.isVideo) {
-                VideoPage(m, onTap = { bars = !bars }, onPlay = { onPlay(m) })
+                VideoPage(
+                    m = m,
+                    active = page == pagerState.currentPage,
+                    bars = bars,
+                    onTap = { bars = !bars },
+                    onFallback = { onPlay(m) },
+                )
             } else {
                 ZoomImage(
                     m = m,
@@ -225,36 +240,177 @@ fun ViewerScreen(
 }
 
 @Composable
-private fun VideoPage(m: Media, onTap: () -> Unit, onPlay: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onTap,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = m.uri,
-            contentDescription = m.name,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize(),
-        )
-        IconButton(
-            onClick = onPlay,
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.55f)),
-        ) {
-            Icon(
-                Icons.Rounded.PlayArrow,
-                contentDescription = "Reproduzir",
-                tint = Color.White,
-                modifier = Modifier.size(44.dp),
+private fun VideoPage(
+    m: Media,
+    active: Boolean,
+    bars: Boolean,
+    onTap: () -> Unit,
+    onFallback: () -> Unit,
+) {
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(active) { if (!active) started = false }
+
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (started && active) {
+            VideoPlayer(
+                m = m,
+                bars = bars,
+                onTap = onTap,
+                onFallback = {
+                    started = false
+                    onFallback()
+                },
             )
+        } else {
+            AsyncImage(
+                model = m.uri,
+                contentDescription = m.name,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onTap,
+                    ),
+            )
+            IconButton(
+                onClick = { started = true },
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f)),
+            ) {
+                Icon(
+                    Icons.Rounded.PlayArrow,
+                    contentDescription = "Reproduzir",
+                    tint = Color.White,
+                    modifier = Modifier.size(44.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Player embutido: VideoView nativo do Android (sem bibliotecas extras) + controles próprios. */
+@Composable
+private fun VideoPlayer(
+    m: Media,
+    bars: Boolean,
+    onTap: () -> Unit,
+    onFallback: () -> Unit,
+) {
+    val ctx = LocalContext.current
+    var playing by remember { mutableStateOf(true) }
+    var pos by remember { mutableIntStateOf(0) }
+    var dur by remember { mutableIntStateOf(0) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+
+    val video = remember(m.uri) {
+        VideoView(ctx).apply {
+            keepScreenOn = true
+            setOnPreparedListener { mp ->
+                dur = mp.duration
+                start()
+            }
+            setOnCompletionListener {
+                playing = false
+                pos = dur
+            }
+            setOnErrorListener { _, _, _ ->
+                onFallback()
+                true
+            }
+            setVideoURI(m.uri)
+        }
+    }
+    val container = remember(video) {
+        FrameLayout(ctx).apply {
+            addView(
+                video,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    Gravity.CENTER,
+                ),
+            )
+        }
+    }
+
+    DisposableEffect(video) { onDispose { video.stopPlayback() } }
+
+    LaunchedEffect(playing) {
+        while (playing) {
+            if (!dragging) pos = video.currentPosition
+            delay(250)
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AndroidView(factory = { container }, modifier = Modifier.fillMaxSize())
+
+        // Camada transparente: toque mostra/esconde os controles.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onTap,
+                ),
+        )
+
+        AnimatedVisibility(
+            visible = bars,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            val shown = if (dragging) dragValue.toInt() else pos
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 68.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(end = 14.dp),
+            ) {
+                IconButton(onClick = {
+                    if (playing) {
+                        video.pause()
+                        playing = false
+                    } else {
+                        if (dur > 0 && video.currentPosition >= dur - 200) video.seekTo(0)
+                        video.start()
+                        playing = true
+                    }
+                }) {
+                    Icon(
+                        if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (playing) "Pausar" else "Reproduzir",
+                        tint = Color.White,
+                    )
+                }
+                Text(formatDuration(shown.toLong()), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                Slider(
+                    value = shown.toFloat().coerceIn(0f, dur.coerceAtLeast(1).toFloat()),
+                    onValueChange = {
+                        dragging = true
+                        dragValue = it
+                    },
+                    onValueChangeFinished = {
+                        video.seekTo(dragValue.toInt())
+                        pos = dragValue.toInt()
+                        dragging = false
+                    },
+                    valueRange = 0f..dur.coerceAtLeast(1).toFloat(),
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                )
+                Text(formatDuration(dur.toLong()), color = Color.White, style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
 }
