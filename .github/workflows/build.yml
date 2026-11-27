@@ -46,10 +46,10 @@ jobs:
         if: contains(github.event.head_commit.message, '[release]')
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v1.0.1-pre
+          TAG: v1.0.2-pre
         run: |
           cp app/build/outputs/apk/release/app-release.apk "LeveGaleria-${TAG}.apk"
-          gh release delete v1.0.0-pre --cleanup-tag --yes || true
+          gh release delete v1.0.1-pre --cleanup-tag --yes || true
           gh release delete "$TAG" --cleanup-tag --yes || true
           gh release create "$TAG" "LeveGaleria-${TAG}.apk" \
             --target "$GITHUB_SHA" \
@@ -57,7 +57,8 @@ jobs:
             --title "Leve Galeria ${TAG} (pré-release)" \
             --notes "Pré-release da Leve Galeria.
 
-          Correção: o app fechava logo ao abrir.
+          Novo: player de vídeo embutido (play/pausa, barra de progresso), sem depender de outro app.
+          Correção: o app fechava logo ao abrir (v1.0.1).
 
           - Fotos agrupadas por dia, com filtros (Tudo, Fotos, Vídeos, Favoritos)
           - Álbuns e pastas ocultáveis (Ajustes > Pastas)
